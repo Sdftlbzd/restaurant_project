@@ -1,0 +1,34 @@
+import { Router } from "express";
+// import { userRoutes } from "../Core/api/User/user.route";
+// import { adminRoutes } from "../Core/api/Admin/admin.route";
+// import { vacancyRoutes } from "../Core/api/Vacancy/vacancy.route";
+// import { postRoutes } from "../Core/api/Post/post.route";
+// import { categoryRoutes } from "../Core/api/Category/category.route";
+// import { educationRoutes } from "../Core/api/Education/education.route";
+// import { experienceRoutes } from "../Core/api/Experience/experience.route";
+// import { commentRoutes } from "../Core/api/Comment/comment.route";
+// import { connectionRoutes } from "../Core/api/Connection/connection.route";
+// import { messageRoutes } from "../Core/api/Message/message.route";
+// import { notificationRoutes } from "../Core/api/Notification/notification.route";
+// import { authRoutes } from "../Core/api/Auth/auth.route";
+// import { uploadRoutes } from "../Core/api/uploads/upload.route";
+// import { roleCheck, useAuth } from "../Core/middlewares/auth.middleware";
+// import { ERoleType } from "../Core/app/enums";
+// import { orderRoutes } from "../Core/api/Order/order.route";
+
+export const v1Routes = Router();
+
+// v1Routes.use("/auth", authRoutes);
+// v1Routes.use("/admin",  useAuth, roleCheck([ERoleType.ADMIN]), adminRoutes);
+// v1Routes.use("/user", useAuth, userRoutes);
+// v1Routes.use("/vacancy",useAuth, roleCheck([ERoleType.COMPANY]), vacancyRoutes);
+// v1Routes.use("/post", useAuth, postRoutes);
+// v1Routes.use("/category", useAuth, roleCheck([ERoleType.ADMIN]), categoryRoutes);
+// v1Routes.use("/education", useAuth, educationRoutes);
+// v1Routes.use("/experience", useAuth, experienceRoutes);
+// v1Routes.use("/comment", useAuth, commentRoutes);
+// v1Routes.use("/connection",  useAuth, connectionRoutes);
+// v1Routes.use("/message", messageRoutes);
+// v1Routes.use("/notification", notificationRoutes);
+// v1Routes.use("/upload", uploadRoutes);
+// v1Routes.use("/oder",useAuth, orderRoutes);
