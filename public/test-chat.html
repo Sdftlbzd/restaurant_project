@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Socket.io Chat Test</title>
+  <style>
+    input, button { margin: 5px 0; padding: 6px; }
+    #messages li { margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <h2>Socket.io Chat Test</h2>
+
+  <label>
+    Room ID:
+    <input type="text" id="roomId" value="1" />
+  </label>
+  <br />
+
+  <label>
+    JWT Token:
+    <input type="text" id="token" style="width: 400px;" value="PASTE_YOUR_JWT_TOKEN_HERE" />
+  </label>
+  <br />
+
+  <label>
+    Message:
+    <input type="text" id="message" oninput="emitTyping()" />
+  </label>
+  <br />
+
+  <button onclick="connectAndSend()">Connect & Send</button>
+
+  <h3>Messages:</h3>
+  <ul id="messages"></ul>
+
+  <h4 id="typingIndicator" style="color: gray;"></h4>
+
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <script>
+    let socket;
+    let typingTimeout;
+
+    function connectAndSend() {
+      const roomId = document.getElementById("roomId").value;
+      const token = document.getElementById("token").value;
+      const content = document.getElementById("message").value;
+
+      if (!token || !roomId || !content) {
+        alert("Zəhmət olmasa bütün sahələri doldurun.");
+        return;
+      }
+
+      if (socket) socket.disconnect();
+
+      socket = io("http://localhost:8080", {
+        auth: { token },
+      });
+
+      socket.on("connect", () => {
+        console.log("Bağlantı quruldu:", socket.id);
+        socket.emit("joinRoom", { roomId });
+
+        // Mesaj göndər
+        socket.emit("sendMessage", {
+          roomId,
+          content,
+          isCustomer: true,
+        });
+
+        emitStopTyping(roomId);
+      });
+
+      socket.on("newMessage", (msg) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<strong>${msg.senderId}</strong>: ${msg.content}`;
+        document.getElementById("messages").appendChild(li);
+
+        socket.emit("markAsRead", { messageId: msg.id });
+      });
+
+      socket.on("messageRead", ({ messageId }) => {
+        const li = document.createElement("li");
+        li.style.color = "green";
+        li.innerText = `Mesaj ${messageId} oxundu ✅`;
+        document.getElementById("messages").appendChild(li);
+      });
+
+      socket.on("isTyping", ({ userId }) => {
+        document.getElementById("typingIndicator").innerText = `İstifadəçi (${userId}) yazır...`;
+      });
+
+      socket.on("stoppedTyping", ({ userId }) => {
+        document.getElementById("typingIndicator").innerText = "";
+      });
+
+      socket.on("error", (err) => {
+        console.error("Socket error:", err);
+        alert("Xəta: " + JSON.stringify(err));
+      });
+    }
+
+    function emitTyping() {
+      const roomId = document.getElementById("roomId").value;
+      if (socket && roomId) {
+        socket.emit("typing", { roomId });
+
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+          emitStopTyping(roomId);
+        }, 2000);
+      }
+    }
+
+    function emitStopTyping(roomId) {
+      if (socket) {
+        socket.emit("stopTyping", { roomId });
+      }
+    }
+  </script>
+</body>
+</html>
