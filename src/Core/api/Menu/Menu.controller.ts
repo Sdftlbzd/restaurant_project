@@ -1,4 +1,4 @@
-import { NextFunction, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { validate } from "class-validator";
 import fs from "fs/promises";
 import { AuthRequest } from "../../../types";
@@ -231,8 +231,75 @@ const deleteMenuItem = async (req: AuthRequest, res: Response) => {
   }
 };
 
+const menuList = async (req: Request, res: Response) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const name = (req.query.name as string)?.trim() || undefined;
+    const minPrice = req.query.minPrice
+      ? Number(req.query.minPrice)
+      : undefined;
+    const maxPrice = req.query.maxPrice
+      ? Number(req.query.maxPrice)
+      : undefined;
+    const categoryId = req.query.categoryId
+      ? Number(req.query.categoryId)
+      : undefined;
+    const available =
+      req.query.available !== undefined
+        ? req.query.available === "true"
+        : undefined;
+
+    const query = MenuItem.createQueryBuilder("menu")
+      .leftJoinAndSelect("menu.category", "category")
+      .leftJoinAndSelect("menu.reviews", "review")
+      .skip(skip)
+      .take(limit);
+
+    if (name) {
+      query.andWhere("menu.name ILIKE :name", { name: `%${name}%` });
+    }
+
+    if (minPrice !== undefined) {
+      query.andWhere("menu.price >= :minPrice", { minPrice });
+    }
+
+    if (maxPrice !== undefined) {
+      query.andWhere("menu.price <= :maxPrice", { maxPrice });
+    }
+
+    if (categoryId) {
+      query.andWhere("category.id = :categoryId", { categoryId });
+    }
+
+    if (available !== undefined) {
+      query.andWhere("menu.available = :available", { available });
+    }
+
+    const [list, total] = await query.getManyAndCount();
+
+    res.status(200).json({
+      data: list,
+      pagination: {
+        total,
+        page,
+        per_page: list.length,
+        total_pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Server error",
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
 export const MenuController = () => ({
   create,
   editMenuItem,
   deleteMenuItem,
+  menuList,
 });

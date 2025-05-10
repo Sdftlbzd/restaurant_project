@@ -1,4 +1,4 @@
-import { Response } from "express";
+import { NextFunction, Response } from "express";
 import { Order } from "../../../DAL/models/Order.model";
 import { OrderItem } from "../../../DAL/models/OrderItem.model";
 import { MenuItem } from "../../../DAL/models/Menu.model";
@@ -7,7 +7,9 @@ import { AuthRequest } from "../../../types";
 import { CreateOrderDTO, EditOrderStatusDTO } from "./Order.dto";
 import { validate } from "class-validator";
 import { formatErrors } from "../../middlewares/error.middleware";
-import { createChatRoomIfNotExists, sendSystemMessage } from "../ChatRoom/ChatRoom.controller";
+import { ChatRoom } from "../../../DAL/models/ChatRoom.model";
+import { User } from "../../../DAL/models/User.model";
+import { Message } from "../../../DAL/models/Message.model";
 
 const createOrder = async (req: AuthRequest, res: Response) => {
   try {
@@ -60,9 +62,9 @@ const createOrder = async (req: AuthRequest, res: Response) => {
     }
 
     const dto = new CreateOrderDTO();
-    dto.costumer = user;
+    dto.customer = user;
     dto.items = orderItems;
-    dto.location =location;
+    dto.location = location;
 
     const errors = await validate(dto);
     if (errors.length > 0) {
@@ -71,10 +73,10 @@ const createOrder = async (req: AuthRequest, res: Response) => {
     }
 
     const order = Order.create({
-      costumer:user,
+      customer: user,
       totalPrice,
       items: orderItems,
-      location
+      location,
     });
 
     await order.save();
@@ -92,10 +94,13 @@ const createOrder = async (req: AuthRequest, res: Response) => {
   }
 };
 
-const updateOrderStatus = async (req: AuthRequest, res: Response) => {
+const updateOrderStatus = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const user = req.user;
-
     if (!user) {
       res.status(401).json({ message: "Unauthorized" });
       return;
@@ -106,7 +111,7 @@ const updateOrderStatus = async (req: AuthRequest, res: Response) => {
 
     const order = await Order.findOne({
       where: { id },
-      relations: ["orderItems"],
+      relations: ["orderItems", "customer"],
     });
 
     if (!order) {
@@ -120,13 +125,12 @@ const updateOrderStatus = async (req: AuthRequest, res: Response) => {
     }
 
     if (order.status === status) {
-      res.status(304).json("Hech bir deyishiklik yoxdur");
+      res.status(304).json({ message: "Heç bir dəyişiklik yoxdur" });
       return;
     }
 
     const dto = new EditOrderStatusDTO();
     dto.status = status;
-
     const errors = await validate(dto);
     if (errors.length > 0) {
       res.status(422).json(formatErrors(errors));
@@ -136,30 +140,20 @@ const updateOrderStatus = async (req: AuthRequest, res: Response) => {
     order.status = status;
     await order.save();
 
-    res.json({
-      message: `Order status updated to ${status}`,
-      data: order,
-    });
+    // müştərini saxla ki, növbəti middleware-lər istifadə etsin
+    res.locals.customer = order.customer;
+
+    // status COMPLETED-dirsə növbəti middleware-lərə keç
     if (status === EOrderStatusType.COMPLETED) {
-      const customer = order.costumer; // <-- burda düzəliş etdik
-      const staff = user;
-    
-      const room = await createChatRoomIfNotExists(customer, staff);
-    
-      await sendSystemMessage(
-        room,
-        "Sifarişiniz təsdiq olundu ✅",
-        staff
-      );
+      next(); // davam et (chatRoom və systemMessage middleware-lərinə)
+    } else {
+      res.json({
+        message: `Sifariş statusu yeniləndi: ${status}`,
+        data: order,
+      });
     }
-    
-    
-    
   } catch (error) {
-    res.status(500).json({
-      message: "Something went wrong",
-      error: error instanceof Error ? error.message : error,
-    });
+    next(error);
   }
 };
 
@@ -172,7 +166,7 @@ const getOrdersByUser = async (req: AuthRequest, res: Response) => {
     }
 
     const orders = await Order.find({
-      where:  { costumer: { id: user.id } },
+      where: { customer: { id: user.id } },
       relations: ["orderItems", "orderItems.menuItem"],
     });
 

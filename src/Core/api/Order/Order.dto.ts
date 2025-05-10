@@ -19,7 +19,7 @@ export class CreateOrderDTO {
   location: string;
 
   @IsDefined()
-  costumer: User;
+  customer: User;
 
   @IsDefined()
   items: OrderItem[];

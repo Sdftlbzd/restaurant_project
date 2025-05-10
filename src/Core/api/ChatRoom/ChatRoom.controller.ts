@@ -1,47 +1,57 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { ChatRoom } from "../../../DAL/models/ChatRoom.model";
-import { AuthRequest } from "../../../types";
-import { ERoleType } from "../../app/enums";
 import { User } from "../../../DAL/models/User.model";
 import { Message } from "../../../DAL/models/Message.model";
-/**
- * Müştəri və staff arasında chat otağı mövcuddursa onu qaytarır, yoxdursa yaradır.
- */
+import { AuthRequest } from "../../../types";
+
 export const createChatRoomIfNotExists = async (
-  customer: User,
-  staff: User
-): Promise<ChatRoom> => {
-  let room = await ChatRoom.findOne({
-    where: {
-      customer: { id: customer.id },
-      staff: { id: staff.id },
-    },
-  });
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const customer = res.locals.customer as User;
+    const staff = req.user as User;
 
-  if (!room) {
-    room = ChatRoom.create({ customer, staff });
-    await room.save();
+    let room = await ChatRoom.findOne({
+      where: {
+        customer: { id: customer.id },
+        staff: { id: staff.id },
+      },
+    });
+
+    if (!room) {
+      room = ChatRoom.create({ customer, staff });
+      await room.save();
+    }
+
+    res.locals.chatRoom = room;
+    next();
+  } catch (error) {
+    next(error);
   }
-
-  return room;
 };
 
-/**
- * Chat otağına sistem mesajı göndərir. Bu mesaj müştəri tərəfindən deyil, sistem və ya staff tərəfindən gəlmiş sayılır.
- */
 export const sendSystemMessage = async (
-  room: ChatRoom,
-  content: string,
-  senderStaff?: User
-): Promise<Message> => {
-  const message = new Message();
-  message.content = content;
-  message.room = room;
-  message.customer = null;
-  message.staff = senderStaff ?? null;
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const staff = req.user as User;
+    const room = res.locals.chatRoom as ChatRoom;
 
-  await message.save();
-  return message;
+    const message = new Message();
+    message.content = "Sifarişiniz təsdiq olundu ✅";
+    message.room = room;
+    message.customer = null;
+    message.staff = staff;
+    await message.save();
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const ChatRoomController = () => ({

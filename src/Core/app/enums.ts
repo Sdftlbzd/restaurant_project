@@ -1,5 +1,5 @@
 export enum ERoleType {
-  COSTUMER = "COSTUMER",
+  CUSTOMER = "CUSTOMER",
   ADMIN = "ADMIN",
   STAFF = "STAFF",
 }
@@ -12,14 +12,24 @@ export enum ECategoryType {
 }
 
 export enum EOrderStatusType {
-  PENDING = "PENDING",
-  PREPARING = "PREPARING",
-  COMPLETED = "COMPLETED",
-  CANCELLED = "CANCELLED",
+  PENDING = "PENDING", // İstifadəçi sifarişi göndərib, lakin hələ qəbul olunmayıb
+  ACCEPTED = "ACCEPTED", // Staff sifarişi təsdiq edib
+  PREPARING = "PREPARING", // Sifariş hazırlanır
+  PAID = "PAID", // Ödəniş uğurla həyata keçirilib
+  COMPLETED = "COMPLETED", // Sifariş tamamlanıb və təhvil verilib
+  CANCELLED = "CANCELLED", // Sifariş ləğv edilib
 }
 
 export enum EReservationStatus {
   PENDING = "PENDING",
   CONFIRMED = "CONFIRMED",
   CANCELLED = "CANCELLED",
+}
+
+export enum EPaymentMethod {
+  ONLINE = "online",
+  CASH = "cash",
+  CARD = "card",
+  APPLE_PAY = "apple_pay",
+  GOOGLE_PAY = "google_pay",
 }

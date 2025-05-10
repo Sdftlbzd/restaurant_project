@@ -7,6 +7,7 @@ import { Review } from "./Review.model";
 import { Location } from "./Location.model";
 import { Message } from "./Message.model";
 import { ChatRoom } from "./ChatRoom.model";
+import { Payment } from "./Payment.model";
 
 @Entity({ name: "users" })
 export class User extends CommonEntity {
@@ -28,14 +29,14 @@ export class User extends CommonEntity {
   @Column({
     type: "enum",
     enum: ERoleType,
-    default: ERoleType.COSTUMER,
+    default: ERoleType.CUSTOMER,
   })
   role: ERoleType;
 
   @Column({ type: "varchar", length: 13, default: null, unique: true })
   phone: string;
 
-  @OneToMany(() => Order, (order) => order.user)
+  @OneToMany(() => Order, (order) => order.customer)
   orders: Order[];
 
   @OneToMany(() => Reservation, (reservation) => reservation.user)
@@ -55,4 +56,7 @@ export class User extends CommonEntity {
 
   @OneToMany(() => ChatRoom, (room) => room.staff)
   chatRoomsAsStaff: ChatRoom[];
+
+  @OneToMany(() => Payment, (payment) => payment.user)
+  payments: Payment[];
 }

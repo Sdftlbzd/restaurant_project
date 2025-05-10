@@ -3,11 +3,12 @@ import { CommonEntity } from "./Common.model";
 import { User } from "./User.model";
 import { OrderItem } from "./OrderItem.model";
 import { EOrderStatusType } from "../../Core/app/enums";
+import { Payment } from "./Payment.model";
 
 @Entity({ name: "orders" })
 export class Order extends CommonEntity {
   @ManyToOne(() => User, (user) => user.orders)
-  costumer: User;
+  customer: User;
 
   @OneToMany(() => OrderItem, (orderItem) => orderItem.order)
   items: OrderItem[];
@@ -24,4 +25,7 @@ export class Order extends CommonEntity {
     default: EOrderStatusType.PENDING,
   })
   status: EOrderStatusType;
+
+  @OneToMany(() => Payment, (payment) => payment.order)
+  payments: Payment[];
 }

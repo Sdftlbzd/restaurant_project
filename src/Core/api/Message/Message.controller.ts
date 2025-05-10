@@ -30,7 +30,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     message.content = content;
     message.room = room;
 
-    if (role === ERoleType.COSTUMER) {
+    if (role === ERoleType.CUSTOMER) {
       message.customer = user;
     } else if (role === ERoleType.STAFF || role === ERoleType.ADMIN) {
       message.staff = user;
