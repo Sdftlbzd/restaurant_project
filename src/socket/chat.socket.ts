@@ -91,7 +91,6 @@ export const registerChatHandlers = async (
       }
     });
 
-    // Yazır göstəricisi
     socket.on("typing", ({ roomId }) => {
       socket.to(roomId).emit("isTyping", { userId: dbUser.id });
     });

@@ -254,12 +254,17 @@ const menuList = async (req: Request, res: Response) => {
 
     const query = MenuItem.createQueryBuilder("menu")
       .leftJoinAndSelect("menu.category", "category")
-      .leftJoinAndSelect("menu.reviews", "review")
+      .select([
+        "menu.id",
+        "menu.name",
+        "category.id",
+        "category.name",
+      ])      
       .skip(skip)
       .take(limit);
 
     if (name) {
-      query.andWhere("menu.name ILIKE :name", { name: `%${name}%` });
+      query.andWhere("menu.name LIKE :name", { name: `%${name}%` });
     }
 
     if (minPrice !== undefined) {
@@ -274,7 +279,7 @@ const menuList = async (req: Request, res: Response) => {
       query.andWhere("category.id = :categoryId", { categoryId });
     }
 
-    if (available !== undefined) {
+    if (available !== undefined ) {
       query.andWhere("menu.available = :available", { available });
     }
 

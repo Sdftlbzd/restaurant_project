@@ -92,12 +92,21 @@ const staffCreate = async (req: Request, res: Response) => {
 
 const staffDelete = async (req: Request, res: Response) => {
   try {
+    const admin = await User.findOne({
+      where: { id: Number(req.params.id), role: ERoleType.ADMIN },
+    });
+
+    if (admin) {
+      res.status(404).json({ message: "Admin siline bilmez!" });
+      return;
+    }
+
     const user = await User.findOne({
       where: { id: Number(req.params.id), role: ERoleType.STAFF },
     });
 
     if (!user) {
-      res.status(404).json({ message: "İstifadəçi tapılmadı" });
+      res.status(404).json({ message: "Bele bir ishci tapılmadı" });
       return;
     }
 
@@ -112,7 +121,69 @@ const staffDelete = async (req: Request, res: Response) => {
   }
 };
 
+const staffList = async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 5;
+    const skip = (page - 1) * limit;
+
+    const [list, total] = await User.findAndCount({
+      where: { role: ERoleType.STAFF },
+      skip,
+      take: limit,
+      select: ["id", "name", "surname", "email", "phone", "created_at"],
+    });
+
+    res.status(200).json({
+      data: list,
+      pagination: {
+        total,
+        page,
+        items_on_page: list.length,
+        per_page: Math.ceil(Number(total) / limit),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Something went wrong",
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
+const customerList = async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 5;
+    const skip = (page - 1) * limit;
+
+    const [list, total] = await User.findAndCount({
+      where: { role: ERoleType.CUSTOMER },
+      skip,
+      take: limit,
+      select: ["id", "name", "surname", "email", "phone", "created_at"],
+    });
+
+    res.status(200).json({
+      data: list,
+      pagination: {
+        total,
+        page,
+        items_on_page: list.length,
+        per_page: Math.ceil(Number(total) / limit),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Something went wrong",
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
 export const AdminController = () => ({
   staffCreate,
   staffDelete,
+  staffList,
+  customerList,
 });

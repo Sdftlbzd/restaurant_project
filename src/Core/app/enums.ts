@@ -16,14 +16,13 @@ export enum EOrderStatusType {
   ACCEPTED = "ACCEPTED", // Staff sifarişi təsdiq edib
   PREPARING = "PREPARING", // Sifariş hazırlanır
   PAID = "PAID", // Ödəniş uğurla həyata keçirilib
-  COMPLETED = "COMPLETED", // Sifariş tamamlanıb və təhvil verilib
   CANCELLED = "CANCELLED", // Sifariş ləğv edilib
 }
 
 export enum EReservationStatus {
   PENDING = "PENDING",
   CONFIRMED = "CONFIRMED",
-  CANCELLED = "CANCELLED",
+  REJECT = "REJECT",
 }
 
 export enum EPaymentMethod {

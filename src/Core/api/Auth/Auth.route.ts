@@ -9,3 +9,5 @@ authRoutes.post("/register", controller.register);
 authRoutes.post("/login", controller.login);
 authRoutes.put("/update", useAuth, controller.updateUser);
 authRoutes.get("/me", useAuth, controller.aboutMe);
+authRoutes.post("/forget/password", controller.ForgetPass);
+authRoutes.post("/create/password/:token", controller.CreatePass);

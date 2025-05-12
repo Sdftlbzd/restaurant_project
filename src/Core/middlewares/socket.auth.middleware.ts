@@ -22,7 +22,6 @@ export const socketAuth = async (socket: Socket, next: (err?: any) => void) => {
       return next(new Error("İstifadəçi tapılmadı"));
     }
 
-    // socket üzərində user obyektini saxla
     (socket as any).user = user;
 
     next();

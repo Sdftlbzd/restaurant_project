@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne } from "typeorm";
 import { CommonEntity } from "./Common.model";
 import { User } from "./User.model";
 import { Order } from "./Order.model";
+import { EPaymentMethod } from "../../Core/app/enums";
 
 @Entity({ name: "payments" })
 export class Payment extends CommonEntity {
@@ -14,8 +15,11 @@ export class Payment extends CommonEntity {
   @Column("decimal", { precision: 10, scale: 2 })
   amount: number;
 
-  @Column({ type: "varchar", length: 50 })
-  method: string; // məsələn: 'card', 'cash', 'online'
+  @Column({
+    type: "enum",
+    enum: EPaymentMethod,
+  })
+  method: EPaymentMethod;
 
   @Column({ type: "boolean", default: false })
   isSuccessful: boolean;

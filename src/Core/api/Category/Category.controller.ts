@@ -1,4 +1,4 @@
-import { NextFunction, Response } from "express";
+import { Response } from "express";
 import { Category } from "../../../DAL/models/Category.model";
 import { AuthRequest } from "../../../types";
 import { validate } from "class-validator";
@@ -16,6 +16,15 @@ const createCategory = async (req: AuthRequest, res: Response) => {
 
     const { name, description } = req.body;
 
+    const category = await Category.findOne({
+      where: { name },
+    });
+
+    if (category) {
+      res.status(409).json({ message: "Bu adda kateqoriya artıq mövcuddur" });
+      return;
+    }
+
     if (!name || !description) {
       res.status(400).json({ message: "Name and description are required" });
       return;
@@ -27,9 +36,14 @@ const createCategory = async (req: AuthRequest, res: Response) => {
 
     await newCategory.save();
 
+    const data = await Category.findOne({
+      where: { id: newCategory.id },
+      select: ["id", "name", "description"],
+    });
+
     res.status(201).json({
       message: "Category created successfully",
-      category: newCategory,
+      category: data,
     });
   } catch (error) {
     res.status(500).json({ message: "Internal Server Error", error });
@@ -64,8 +78,17 @@ const updatedCategory = async (req: AuthRequest, res: Response) => {
     const category = await Category.findOne({
       where: { id: category_id },
     });
+
     if (!category) {
       res.status(404).json({ message: "category not found" });
+      return;
+    }
+
+    const isSameName = name !== undefined && name === category.name;
+    const isSameDescription = description !== undefined && description === category.description;
+    
+    if (isSameName || isSameDescription) {
+      res.status(304).json({ message: "Heç bir dəyişiklik yoxdur" });
       return;
     }
 
@@ -73,9 +96,12 @@ const updatedCategory = async (req: AuthRequest, res: Response) => {
       name,
       description,
     });
+
     const updatedData = await Category.findOne({
       where: { id: category_id },
+      select: ["id", "name", "description", "created_at", "updated_at"],
     });
+
     res.status(200).json({
       message: "Category updated succesfully",
       data: updatedData,

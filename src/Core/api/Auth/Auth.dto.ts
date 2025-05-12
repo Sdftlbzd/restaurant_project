@@ -69,7 +69,7 @@ export class UpdateUserDTO {
 export class CreatePassDTO {
   @IsDefined()
   @IsString()
-  @MinLength(8, { message: "En az 3 simvol olmalidir" })
+  @MinLength(8, { message: "En az 8 simvol olmalidir" })
   @MaxLength(15, { message: "Pass is too long" })
   password: string;
 }

@@ -3,8 +3,11 @@ import { Message } from "../../../DAL/models/Message.model";
 import { AuthRequest } from "../../../types";
 import { ChatRoom } from "../../../DAL/models/ChatRoom.model";
 import { ERoleType } from "../../app/enums";
+import { MessageCreateDtO } from "./Message.dto";
+import { validate } from "class-validator";
+import { formatErrors } from "../../middlewares/error.middleware";
 
-export const sendMessage = async (req: AuthRequest, res: Response) => {
+const sendMessage = async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user;
 
@@ -13,9 +16,9 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const { roomId, content, role } = req.body;
+    const { roomId, content } = req.body;
 
-    if (!content || !roomId || !role) {
+    if (!content || !roomId) {
       res.status(400).json({ message: "Missing fields" });
       return;
     }
@@ -26,13 +29,23 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    const dto = new MessageCreateDtO();
+    dto.roomId = roomId;
+    dto.content = content;
+
+    const errors = await validate(dto);
+    if (errors.length > 0) {
+      res.status(422).json(formatErrors(errors));
+      return;
+    }
+
     const message = new Message();
     message.content = content;
     message.room = room;
 
-    if (role === ERoleType.CUSTOMER) {
+    if (user.role === ERoleType.CUSTOMER) {
       message.customer = user;
-    } else if (role === ERoleType.STAFF || role === ERoleType.ADMIN) {
+    } else if (user.role === ERoleType.STAFF || user.role === ERoleType.ADMIN) {
       message.staff = user;
     } else {
       res.status(400).json({ message: "Invalid role" });
@@ -41,14 +54,13 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
 
     await message.save();
 
-    // 🔥 SOCKET İLƏ MƏLUMATI OTAĞA GÖNDƏR
     const io = req.app.get("io");
     io.to(roomId.toString()).emit("receiveMessage", {
       id: message.id,
       content: message.content,
       roomId,
       senderId: user.id,
-      role,
+      role: user.role,
       createdAt: message.created_at,
     });
 
@@ -58,7 +70,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getMessagesByRoomId = async (req: AuthRequest, res: Response) => {
+const getMessagesByRoomId = async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user;
 

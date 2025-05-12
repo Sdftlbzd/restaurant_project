@@ -3,11 +3,11 @@ import { CommonEntity } from "./Common.model";
 import { ERoleType } from "../../Core/app/enums";
 import { Order } from "./Order.model";
 import { Reservation } from "./Reservation.model";
-import { Review } from "./Review.model";
 import { Location } from "./Location.model";
 import { Message } from "./Message.model";
 import { ChatRoom } from "./ChatRoom.model";
 import { Payment } from "./Payment.model";
+import { Rating } from "./Raiting.model";
 
 @Entity({ name: "users" })
 export class User extends CommonEntity {
@@ -36,14 +36,17 @@ export class User extends CommonEntity {
   @Column({ type: "varchar", length: 13, default: null, unique: true })
   phone: string;
 
+  @Column({ type: "varchar", default: null })
+  passToken: String;
+
+  @Column({ type: "datetime", default: null })
+  resetExpiredIn: Date;
+
   @OneToMany(() => Order, (order) => order.customer)
   orders: Order[];
 
   @OneToMany(() => Reservation, (reservation) => reservation.user)
   reservations: Reservation[];
-
-  @OneToMany(() => Review, (review) => review.user)
-  reviews: Review[];
 
   @OneToMany(() => Message, (message) => message.customer)
   customerMessages: Message[];
@@ -59,4 +62,7 @@ export class User extends CommonEntity {
 
   @OneToMany(() => Payment, (payment) => payment.user)
   payments: Payment[];
+
+  @OneToMany(() => Rating, (rating) => rating.user)
+  ratings: Rating[];
 }

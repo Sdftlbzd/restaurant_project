@@ -4,7 +4,7 @@ import { User } from "./User.model";
 
 @Entity({ name: "locations" })
 export class Location extends CommonEntity {
-  @Column({ type: "varchar", length: 150, unique:true })
+  @Column({ type: "varchar", length: 150 })
   title: string;
 
   @Column({ type: "varchar", length: 150 })

@@ -5,7 +5,7 @@ import { LocationCreateDto } from "./Location.dto";
 import { validate } from "class-validator";
 import { formatErrors } from "../../middlewares/error.middleware";
 
-export const createLocation = async (req: AuthRequest, res: Response) => {
+const createLocation = async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user;
     const { title, address } = req.body;
@@ -15,7 +15,11 @@ export const createLocation = async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const existingLocation = await Location.findOne({ where: { title, user } });
+    const existingLocation = await Location.findOne({
+      where: { title, user: { id: user.id } },
+      relations: ["user"],
+    });
+
     if (existingLocation) {
       res.status(409).json({ message: "Bu adda location artıq mövcuddur" });
       return;
@@ -34,14 +38,16 @@ export const createLocation = async (req: AuthRequest, res: Response) => {
     const location = Location.create({ title, address, user });
     await location.save();
 
-    res.status(201).json({ message: "Location əlavə olundu", data: location });
+    res.status(201).json({
+      message: `${location.address} adresi ${location.title} basligi ile location listine əlavə olundu`,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Xəta baş verdi", error });
   }
 };
 
-export const deleteLocation = async (req: AuthRequest, res: Response) => {
+const deleteLocation = async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user;
     const locationId = Number(req.params.id);
@@ -52,7 +58,7 @@ export const deleteLocation = async (req: AuthRequest, res: Response) => {
     }
 
     const location = await Location.findOne({
-      where: { id: locationId, user },
+      where: { id: locationId, user: { id: user.id } },
     });
 
     if (!location) {
@@ -83,9 +89,10 @@ const locationList = async (req: AuthRequest, res: Response) => {
 
     const [list, total] = await Location.findAndCount({
       where: { user: { id: user.id } },
-      relations: ["user"],
+      //order: { updated_at: "DESC" },
       skip,
       take: limit,
+      select: ["id", "title", "address", "created_at"],
     });
 
     res.status(200).json({

@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { Reservation } from "../../../DAL/models/Reservation.model";
 import { AuthRequest } from "../../../types";
 import { EReservationStatus } from "../../app/enums";
@@ -8,6 +8,8 @@ import {
 } from "./Reservation.dto";
 import { validate } from "class-validator";
 import { formatErrors } from "../../middlewares/error.middleware";
+import { Message } from "../../../DAL/models/Message.model";
+import { ChatRoom } from "../../../DAL/models/ChatRoom.model";
 
 const createReservation = async (req: AuthRequest, res: Response) => {
   try {
@@ -31,13 +33,17 @@ const createReservation = async (req: AuthRequest, res: Response) => {
 
     const today = new Date(now.toDateString());
     if (reservationDay < today) {
-      res.status(400).json({ message: "Reservation date cannot be in the past." });
+      res
+        .status(400)
+        .json({ message: "Reservation date cannot be in the past." });
       return;
     }
 
     const minStartTime = new Date(now.getTime() + 30 * 60 * 1000);
     if (startDateTime < minStartTime) {
-      res.status(400).json({ message: "Start time must be at least 30 minutes from now." });
+      res
+        .status(400)
+        .json({ message: "Start time must be at least 30 minutes from now." });
       return;
     }
 
@@ -48,7 +54,9 @@ const createReservation = async (req: AuthRequest, res: Response) => {
 
     const duration = endDateTime.getTime() - startDateTime.getTime();
     if (duration < 30 * 60 * 1000) {
-      res.status(400).json({ message: "Reservation duration must be at least 30 minutes." });
+      res
+        .status(400)
+        .json({ message: "Reservation duration must be at least 30 minutes." });
       return;
     }
 
@@ -75,8 +83,7 @@ const createReservation = async (req: AuthRequest, res: Response) => {
     await reservation.save();
 
     res.status(201).json({
-      message: "Reservation created successfully",
-      data: reservation,
+      message: "Reservation request sent",
     });
   } catch (error) {
     res.status(500).json({ message: "Something went wrong", error });
@@ -98,7 +105,6 @@ const getUserReservations = async (req: AuthRequest, res: Response) => {
 
     const [list, total] = await Reservation.findAndCount({
       where: { user: { id: user.id } },
-      relations: ["user"],
       order: { updated_at: "DESC" },
       skip,
       take: limit,
@@ -118,16 +124,30 @@ const getUserReservations = async (req: AuthRequest, res: Response) => {
   }
 };
 
-const updateReservationStatus = async (req: AuthRequest, res: Response) => {
+const updateReservationStatus = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const id = Number(req.params.id);
-    if (!id) {
+    const reservation_id = Number(req.params.id);
+    if (!reservation_id) {
       res.status(400).json("Id is required");
       return;
     }
+
+    const staff = req.user;
+
+    if (!staff) {
+      res.status(404).json({ message: "Bele bir ishci tapılmadı" });
+      return;
+    }
+
     const { status } = req.body;
 
-    const reservation = await Reservation.findOne({ where: { id } });
+    const reservation = await Reservation.findOne({
+      where: { id: reservation_id },
+    });
 
     if (!reservation) {
       res.status(404).json({ message: "Reservation not found" });
@@ -152,13 +172,27 @@ const updateReservationStatus = async (req: AuthRequest, res: Response) => {
       res.status(422).json(formatErrors(errors));
       return;
     }
-
     reservation.status = status;
     await reservation.save();
 
-    res.json({
+    const room = res.locals.chatRoom as ChatRoom;
+
+    if (!room || !staff) {
+      res.status(400).json({ message: "Chat otağı və ya staff tapılmadı" });
+      return;
+    }
+
+    const message = Message.create({
+      content: `Your reservation status has been moved to ${status}`,
+      room,
+      customer: null,
+      staff,
+    });
+
+    await message.save();
+    res.status(200).json({
       message: "Reservation status updated",
-      data: reservation,
+      data: reservation.status,
     });
   } catch (error) {
     res.status(500).json({ message: "Something went wrong", error });
@@ -175,15 +209,16 @@ const cancelReservation = async (req: AuthRequest, res: Response) => {
 
     const id = Number(req.params.id);
 
-    const reservation = await Reservation.findOne({ where: { id, user } });
+    const reservation = await Reservation.findOne({
+      where: { id, user: { id: user.id } },
+    });
 
     if (!reservation) {
       res.status(404).json({ message: "Reservation not found" });
       return;
     }
 
-    reservation.status = EReservationStatus.CANCELLED;
-    await reservation.save();
+    await reservation.softRemove();
 
     res.json({ message: "Reservation cancelled", data: reservation });
   } catch (error) {
@@ -218,10 +253,69 @@ const getAllReservations = async (req: Request, res: Response) => {
   }
 };
 
+const reservationList = async (req: Request, res: Response) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const status = req.query.status as EReservationStatus | undefined;
+    const date = req.query.date ? new Date(req.query.date as string) : undefined;
+    const userId = req.query.userId ? Number(req.query.userId) : undefined;
+
+    const query = Reservation.createQueryBuilder("reservation")
+      .leftJoinAndSelect("reservation.user", "user")
+      .select([
+        "reservation.id",
+        "reservation.date",
+        "reservation.startTime",
+        "reservation.endTime",
+        "reservation.guests",
+        "reservation.status",
+        "user.id",
+        "user.name",
+        "user.email",
+      ])
+      .skip(skip)
+      .take(limit);
+
+    if (status) {
+      query.andWhere("reservation.status = :status", { status });
+    }
+
+    if (date) {
+      query.andWhere("DATE(reservation.date) = DATE(:date)", { date });
+    }
+
+    if (userId) {
+      query.andWhere("user.id = :userId", { userId });
+    }
+
+    const [list, total] = await query.getManyAndCount();
+
+    res.status(200).json({
+      data: list,
+      pagination: {
+        total,
+        page,
+        per_page: list.length,
+        total_pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Server error",
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
+
 export const ReservationController = () => ({
   createReservation,
   getUserReservations,
   updateReservationStatus,
   cancelReservation,
   getAllReservations,
+  reservationList
 });

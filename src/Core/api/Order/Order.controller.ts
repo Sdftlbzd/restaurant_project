@@ -7,30 +7,45 @@ import { AuthRequest } from "../../../types";
 import { CreateOrderDTO, EditOrderStatusDTO } from "./Order.dto";
 import { validate } from "class-validator";
 import { formatErrors } from "../../middlewares/error.middleware";
-import { ChatRoom } from "../../../DAL/models/ChatRoom.model";
+import { Location } from "../../../DAL/models/Location.model";
 import { User } from "../../../DAL/models/User.model";
+import { ChatRoom } from "../../../DAL/models/ChatRoom.model";
 import { Message } from "../../../DAL/models/Message.model";
 
 const createOrder = async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user;
-
     if (!user) {
       res.status(401).json({ message: "Unauthorized" });
       return;
     }
 
-    const { items, location } = req.body; // items: [{ menuItemId, quantity }]
-
-    // {
-    //     "items": [
-    //       { "menuItemId": 1, "quantity": 2 },
-    //       { "menuItemId": 3, "quantity": 1 }
-    //     ]
-    //   }
+    const { items, location, locationId } = req.body;
+    const id = Number(locationId);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       res.status(400).json({ message: "Order must include items." });
+      return;
+    }
+
+    let selectedLocation = location?.trim();
+
+    if (!selectedLocation && locationId) {
+      const savedLocation = await Location.findOne({
+        where: { id, user: { id: user.id } },
+        relations: ["user"],
+      });
+
+      if (!savedLocation) {
+        res.status(404).json({ message: "Selected location not found." });
+        return;
+      }
+
+      selectedLocation = savedLocation.address;
+    }
+
+    if (!selectedLocation) {
+      res.status(400).json({ message: "Location is required." });
       return;
     }
 
@@ -64,7 +79,7 @@ const createOrder = async (req: AuthRequest, res: Response) => {
     const dto = new CreateOrderDTO();
     dto.customer = user;
     dto.items = orderItems;
-    dto.location = location;
+    dto.location = selectedLocation;
 
     const errors = await validate(dto);
     if (errors.length > 0) {
@@ -76,15 +91,24 @@ const createOrder = async (req: AuthRequest, res: Response) => {
       customer: user,
       totalPrice,
       items: orderItems,
-      location,
+      location: selectedLocation,
     });
 
     await order.save();
-    await OrderItem.save(items.map((item) => ({ ...item, order })));
+
+    for (const orderItem of orderItems) {
+      orderItem.order = order;
+    }
+    await OrderItem.save(orderItems);
+
+    const data = await Order.findOne({
+      where: { id: order.id },
+      select: ["id", "totalPrice", "created_at", "status", "location"],
+    });
 
     res.status(201).json({
       message: "Order created successfully",
-      data: order,
+      data,
     });
   } catch (error) {
     res.status(500).json({
@@ -111,7 +135,19 @@ const updateOrderStatus = async (
 
     const order = await Order.findOne({
       where: { id },
-      relations: ["orderItems", "customer"],
+      relations: ["customer"],
+      select: {
+        id: true,
+        totalPrice: true,
+        created_at: true,
+        status: true,
+        location: true,
+        customer: {
+          id: true,
+          name: true,
+          surname: true,
+        },
+      },
     });
 
     if (!order) {
@@ -131,6 +167,7 @@ const updateOrderStatus = async (
 
     const dto = new EditOrderStatusDTO();
     dto.status = status;
+
     const errors = await validate(dto);
     if (errors.length > 0) {
       res.status(422).json(formatErrors(errors));
@@ -140,21 +177,33 @@ const updateOrderStatus = async (
     order.status = status;
     await order.save();
 
-    // müştərini saxla ki, növbəti middleware-lər istifadə etsin
-    res.locals.customer = order.customer;
+    const staff = req.user as User;
+    const room = res.locals.chatRoom as ChatRoom;
 
-    // status COMPLETED-dirsə növbəti middleware-lərə keç
-    if (status === EOrderStatusType.COMPLETED) {
-      next(); // davam et (chatRoom və systemMessage middleware-lərinə)
-    } else {
-      res.json({
-        message: `Sifariş statusu yeniləndi: ${status}`,
-        data: order,
+    if (!room || !staff) {
+      res.status(400).json({ message: "Chat otağı və ya staff tapılmadı" });
+      return;
+    }
+
+    const message = Message.create({
+      content: `Your order has been moved to ${status}`,
+      room,
+      customer: null,
+      staff,
+    });
+
+    await message.save();
+    res.status(200).json({
+      message: "Order status updated",
+      data: status,
+    });
+    }
+    catch (error) {
+      res.status(500).json({
+        message: "Something went wrong",
+        error: error instanceof Error ? error.message : error,
       });
     }
-  } catch (error) {
-    next(error);
-  }
 };
 
 const getOrdersByUser = async (req: AuthRequest, res: Response) => {
